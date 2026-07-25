@@ -331,6 +331,9 @@ async def process_query(payload: QueryRequest) -> Dict[str, Any]:
         elite_chunks = app.state.reranker.rerank(payload.question, hybrid_candidates, top_n=config.RERANK_TOP_N)
 
         # 3. Grounded answer generation via Groq LLM
+        if getattr(app.state, "generator", None) is None:
+            config.validate_environment()
+            app.state.generator = GroundedGenerator()
         llm_output = app.state.generator.generate_answer(payload.question, elite_chunks)
 
         # 4. Verify citations against source chunks
