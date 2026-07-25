@@ -22,23 +22,23 @@ class DocumentParserRouter:
         """
         if not raw_text:
             return ""
-        
+
         # 1. Remove unpaired surrogates which cause Pydantic Rust validator errors
-        clean_chars = [char for char in raw_text if not ('\ud800' <= char <= '\udfff')]
+        clean_chars = [char for char in raw_text if not ("\ud800" <= char <= "\udfff")]
         text = "".join(clean_chars)
-        
+
         # 2. Drop non-UTF-8 compliant bytes and null characters
         text = text.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
         text = text.replace("\x00", "")
 
         # 3. Replace corrupted PDF bullet points with standard dashes
         text = text.replace("", "\n - ")
-        
+
         # 4. Insert space before glued transition words resulting from PDF line joins
-        pattern = r'([a-z])(based|by|down|under|from|to|for|rules|procedures)\b'
+        pattern = r"([a-z])(based|by|down|under|from|to|for|rules|procedures)\b"
         for _ in range(2):
-            text = re.sub(pattern, r'\1 \2', text)
-        
+            text = re.sub(pattern, r"\1 \2", text)
+
         return text
 
     def _parse_pdf(self, file_path: str) -> str:
@@ -90,8 +90,5 @@ class DocumentParserRouter:
 
         return Document(
             page_content=sanitized_content,
-            metadata=DocumentMetadata(
-                source_path=file_path,
-                file_type=ext
-            )
+            metadata=DocumentMetadata(source_path=file_path, file_type=ext),
         )

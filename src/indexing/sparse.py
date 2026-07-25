@@ -10,14 +10,30 @@ from src.ingestion.schemas import Chunk
 logger = logging.getLogger(__name__)
 
 ENGLISH_STOPWORDS = {
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 
-    'for', 'of', 'is', 'are', 'be', 'by', 'with', 'as'
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "is",
+    "are",
+    "be",
+    "by",
+    "with",
+    "as",
 }
 
 
 class SparseBM25Index:
     """Manages sparse BM25 keyword index for exact lexical searching."""
-    
+
     def __init__(self, storage_path: str = "data/sparse_index.pkl"):
         self.storage_path = storage_path
         self.bm25: BM25Okapi = None
@@ -27,8 +43,8 @@ class SparseBM25Index:
         """Convert text into lowercase tokens, stripping whitespace and common stopwords."""
         if not text:
             return []
-        text = re.sub(r'\s+', ' ', text.lower()).strip()
-        tokens = re.findall(r'\b[a-z0-9]+(?:-[a-z0-9]+)*\b', text)
+        text = re.sub(r"\s+", " ", text.lower()).strip()
+        tokens = re.findall(r"\b[a-z0-9]+(?:-[a-z0-9]+)*\b", text)
         return [t for t in tokens if len(t) > 1 and t not in ENGLISH_STOPWORDS]
 
     def index_chunks(self, chunks: List[Chunk]) -> None:
@@ -44,8 +60,10 @@ class SparseBM25Index:
             return
 
         self.indexed_chunks.extend(new_chunks)
-        logger.info(f"Indexing {len(new_chunks)} new chunks (Total: {len(self.indexed_chunks)}) into BM25 index.")
-        
+        logger.info(
+            f"Indexing {len(new_chunks)} new chunks (Total: {len(self.indexed_chunks)}) into BM25 index."
+        )
+
         corpus_tokenized = [self._tokenize(chunk.page_content) for chunk in self.indexed_chunks]
         self.bm25 = BM25Okapi(corpus_tokenized)
         self.save_index()
@@ -58,13 +76,13 @@ class SparseBM25Index:
 
         tokenized_query = self._tokenize(query)
         raw_scores = self.bm25.get_scores(tokenized_query)
-        
+
         results = [
             {"chunk": self.indexed_chunks[idx], "sparse_score": float(score)}
             for idx, score in enumerate(raw_scores)
             if score > 0.0
         ]
-        
+
         results.sort(key=lambda x: x["sparse_score"], reverse=True)
         return results[:top_k]
 
@@ -97,6 +115,8 @@ class SparseBM25Index:
                 self.bm25 = None
                 self.indexed_chunks = []
         else:
-            logger.info(f"No existing sparse index file found at '{self.storage_path}'. Starting fresh.")
+            logger.info(
+                f"No existing sparse index file found at '{self.storage_path}'. Starting fresh."
+            )
             self.bm25 = None
             self.indexed_chunks = []

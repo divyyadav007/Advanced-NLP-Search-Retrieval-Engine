@@ -15,6 +15,7 @@ class LocalSentenceTransformerEmbeddingFunction(EmbeddingFunction):
 
     def __init__(self, model_name: str):
         import torch
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Loading embedding model '{model_name}' on device: '{self.device}'")
         self.model = SentenceTransformer(model_name, device=self.device)
@@ -36,7 +37,7 @@ class DenseVectorIndex:
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
             embedding_function=self.embedding_fn,
-            metadata={"hnsw:space": "cosine"}
+            metadata={"hnsw:space": "cosine"},
         )
 
     def index_chunks(self, chunks: List[Chunk]) -> None:
@@ -52,24 +53,17 @@ class DenseVectorIndex:
                 "source_path": chunk.metadata.source_path,
                 "file_type": chunk.metadata.file_type,
                 "chunk_index": chunk.metadata.chunk_index,
-                "parent_document_id": chunk.metadata.parent_document_id
+                "parent_document_id": chunk.metadata.parent_document_id,
             }
             for chunk in chunks
         ]
 
         logger.info(f"Upserting {len(chunks)} chunks into ChromaDB collection...")
-        self.collection.upsert(
-            ids=ids,
-            documents=documents,
-            metadatas=metadatas
-        )
+        self.collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Query ChromaDB for top-k nearest semantic neighbor chunks."""
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=top_k
-        )
+        results = self.collection.query(query_texts=[query], n_results=top_k)
 
         if not results or not results["ids"] or not results["ids"][0]:
             return []
@@ -80,12 +74,14 @@ class DenseVectorIndex:
             # ChromaDB cosine space returns Cosine Distance; convert to Similarity (1.0 - Distance)
             similarity_score = float(1.0 - distance)
 
-            formatted_results.append({
-                "chunk_id": results["ids"][0][idx],
-                "text": results["documents"][0][idx],
-                "metadata": results["metadatas"][0][idx],
-                "dense_score": similarity_score
-            })
+            formatted_results.append(
+                {
+                    "chunk_id": results["ids"][0][idx],
+                    "text": results["documents"][0][idx],
+                    "metadata": results["metadatas"][0][idx],
+                    "dense_score": similarity_score,
+                }
+            )
 
         formatted_results.sort(key=lambda x: x["dense_score"], reverse=True)
         return formatted_results

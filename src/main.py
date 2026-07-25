@@ -16,7 +16,9 @@ from src.reranking.cross_encoder import DocumentReranker
 from src.generation.generator import GroundedGenerator
 from src.generation.verifier import CitationVerifier
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -26,12 +28,12 @@ async def app_lifespan(app: FastAPI):
     logger.info("Initializing Hybrid RAG Search Engine API...")
     try:
         config.validate_environment()
-        
+
         # Load and store component instances in FastAPI state for application lifecycle
         sparse_index = SparseBM25Index()
         sparse_index.load_index()
         dense_index = DenseVectorIndex()
-        
+
         app.state.parser_router = DocumentParserRouter()
         app.state.deduplicator = ChunkDeduplicator()
         app.state.sparse_index = sparse_index
@@ -39,7 +41,7 @@ async def app_lifespan(app: FastAPI):
         app.state.hybrid_retriever = HybridRetriever(sparse_index, dense_index)
         app.state.reranker = DocumentReranker()
         app.state.generator = GroundedGenerator()
-        
+
         logger.info("All engine models and indexes loaded successfully.")
     except Exception as err:
         logger.critical(f"Failed to initialize RAG Engine: {err}")
@@ -52,7 +54,7 @@ app = FastAPI(
     title="Enterprise Hybrid RAG Engine API",
     description="High-performance dual-index retrieval orchestration layers.",
     version="1.0.0",
-    lifespan=app_lifespan
+    lifespan=app_lifespan,
 )
 
 # Initialize state placeholders for test mock compatibility
@@ -83,10 +85,10 @@ class QueryRequest(BaseModel):
 
 from fastapi.responses import HTMLResponse
 
-
 # =====================================================================
 # API ENDPOINTS
 # =====================================================================
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root_index():
@@ -262,42 +264,45 @@ async def ingest_document(payload: IngestRequest) -> Dict[str, Any]:
     """Ingest a document, chunk it, deduplicate chunks, and update vector/sparse indexes."""
     if not payload.file_path.strip():
         raise HTTPException(status_code=400, detail="File path string cannot be empty.")
-        
+
     try:
         logger.info(f"Processing ingestion request for: {payload.file_path}")
-        
+
         # 1. Extract raw text from file
         document = app.state.parser_router.process_file(payload.file_path)
-        
+
         # 2. Select chunking strategy based on file type
         if document.metadata.file_type == "md":
             logger.info("Using structure-aware Markdown chunking.")
             raw_chunks = ChunkingEngine.structure_aware_markdown_chunk(document)
         else:
-            logger.info(f"Using fixed-size sliding window chunking for .{document.metadata.file_type}")
-            raw_chunks = ChunkingEngine.fixed_size_chunk(
-                document, 
-                chunk_size=config.CHUNK_SIZE, 
-                chunk_overlap=config.CHUNK_OVERLAP
+            logger.info(
+                f"Using fixed-size sliding window chunking for .{document.metadata.file_type}"
             )
-        
+            raw_chunks = ChunkingEngine.fixed_size_chunk(
+                document, chunk_size=config.CHUNK_SIZE, chunk_overlap=config.CHUNK_OVERLAP
+            )
+
         # 3. Deduplicate semantically redundant chunks using dense embeddings
         embedding_fn = lambda texts: app.state.dense_index.embedding_fn(texts)
         clean_chunks = app.state.deduplicator.deduplicate(raw_chunks, embedding_fn=embedding_fn)
-        
+
         if not clean_chunks:
             logger.info("No unique chunks found after deduplication.")
-            return {"status": "success", "message": "No new unique content chunks detected. Index skipped."}
+            return {
+                "status": "success",
+                "message": "No new unique content chunks detected. Index skipped.",
+            }
 
         # 4. Update both sparse (BM25) and dense (ChromaDB) indexes
         app.state.sparse_index.index_chunks(clean_chunks)
         app.state.dense_index.index_chunks(clean_chunks)
-        
+
         logger.info(f"Successfully indexed {len(clean_chunks)} chunks from {payload.file_path}")
         return {
-            "status": "success", 
-            "chunks_indexed": len(clean_chunks), 
-            "source": payload.file_path
+            "status": "success",
+            "chunks_indexed": len(clean_chunks),
+            "source": payload.file_path,
         }
     except FileNotFoundError as fnf_err:
         logger.error(f"Ingestion file target not found: {fnf_err}")
@@ -312,23 +317,30 @@ async def process_query(payload: QueryRequest) -> Dict[str, Any]:
     """Retrieve relevant context chunks via hybrid search, rerank, and generate grounded answer."""
     if not payload.question.strip():
         raise HTTPException(status_code=400, detail="Query question string cannot be empty.")
-        
+
     try:
         logger.info(f"Processing query: '{payload.question[:60]}...'")
-        
+
         # 1. Hybrid retrieval (BM25 + Vector HNSW)
-        hybrid_candidates = app.state.hybrid_retriever.retrieve(payload.question, top_k=config.RETRIEVAL_TOP_K)
-        
+        hybrid_candidates = app.state.hybrid_retriever.retrieve(
+            payload.question, top_k=config.RETRIEVAL_TOP_K
+        )
+
         if not hybrid_candidates:
             logger.info("Hybrid search returned empty candidate set.")
             return {
                 "answer": "Documentation index is currently completely empty. Please ingest tracking documents first.",
                 "is_context_sufficient": False,
-                "verification_matrix": {"is_valid": False, "flagged_issues": ["No context available"]}
+                "verification_matrix": {
+                    "is_valid": False,
+                    "flagged_issues": ["No context available"],
+                },
             }
 
         # 2. Neural Cross-Encoder Reranking
-        elite_chunks = app.state.reranker.rerank(payload.question, hybrid_candidates, top_n=config.RERANK_TOP_N)
+        elite_chunks = app.state.reranker.rerank(
+            payload.question, hybrid_candidates, top_n=config.RERANK_TOP_N
+        )
 
         # 3. Grounded answer generation via Groq LLM
         if getattr(app.state, "generator", None) is None:
@@ -339,7 +351,7 @@ async def process_query(payload: QueryRequest) -> Dict[str, Any]:
                 logger.error(f"Failed to initialize GroundedGenerator: {gen_err}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Groq LLM Generator Initialization Failed. Please verify GROQ_API_KEY in .env file: {str(gen_err)}"
+                    detail=f"Groq LLM Generator Initialization Failed. Please verify GROQ_API_KEY in .env file: {str(gen_err)}",
                 )
         llm_output = app.state.generator.generate_answer(payload.question, elite_chunks)
 
@@ -350,7 +362,7 @@ async def process_query(payload: QueryRequest) -> Dict[str, Any]:
         return {
             "answer": llm_output["answer"],
             "is_context_sufficient": llm_output["is_context_sufficient"],
-            "verification_matrix": verification_report
+            "verification_matrix": verification_report,
         }
     except Exception as e:
         logger.error(f"Query resolution pipeline failure: {e}")

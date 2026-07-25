@@ -27,14 +27,15 @@ from src.generation.verifier import CitationVerifier
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "").strip().rstrip("/")
 
 st.set_page_config(
-    page_title="Enterprise Hybrid-RAG Dashboard", 
+    page_title="Enterprise Hybrid-RAG Dashboard",
     page_icon="🚀",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS styling (Dark Theme with glassmorphism cards and Inter/Outfit typography)
-st.markdown("""
+st.markdown(
+    """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap');
     
@@ -92,10 +93,15 @@ st.markdown("""
         border-top: 1px solid #1e293b;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown('<div class="main-title">🚀 Enterprise Hybrid RAG Engine</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Production-Grade Knowledge Synthesis & Dual-Index Retrieval Architecture</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="sub-title">Production-Grade Knowledge Synthesis & Dual-Index Retrieval Architecture</div>',
+    unsafe_allow_html=True,
+)
 
 # Sidebar - Telemetry & Configuration Status
 with st.sidebar:
@@ -108,7 +114,7 @@ with st.sidebar:
         st.info("🔌 **Standalone Mode**")
         st.markdown("- **Execution**: Local Process")
         st.markdown("- **Models**: Loaded in local memory")
-    
+
     st.markdown("---")
     st.markdown("### ⚙️ Engine Configurations")
     st.markdown(f"- **Chunk Size**: `{config.CHUNK_SIZE} chars`")
@@ -125,28 +131,36 @@ if "pipeline" not in st.session_state:
         st.session_state.pipeline_mode = "standalone"
         with st.spinner("Initializing search indexes and loading models..."):
             config.validate_environment()
-            
+
             sparse_idx = SparseBM25Index()
             sparse_idx.load_index()
             dense_idx = DenseVectorIndex()
-            
+
             st.session_state.retriever = HybridRetriever(sparse_idx, dense_idx)
             st.session_state.reranker = DocumentReranker()
             st.session_state.generator = GroundedGenerator()
             st.session_state.parser = DocumentParserRouter()
             st.session_state.deduplicator = ChunkDeduplicator()
-            
+
             # Pre-load embedding and reranker transformer models to ensure a warm start
             try:
                 st.session_state.retriever.dense_index.embedding_fn(["warmup text sequence"])
                 from src.ingestion.schemas import Chunk, ChunkMetadata
-                warmup_meta = ChunkMetadata(source_path="warmup.txt", file_type="txt", chunk_index=0, parent_document_id="warmup")
-                warmup_chunk = Chunk(id="warmup", page_content="warmup text sequence", metadata=warmup_meta)
+
+                warmup_meta = ChunkMetadata(
+                    source_path="warmup.txt",
+                    file_type="txt",
+                    chunk_index=0,
+                    parent_document_id="warmup",
+                )
+                warmup_chunk = Chunk(
+                    id="warmup", page_content="warmup text sequence", metadata=warmup_meta
+                )
                 st.session_state.reranker.rerank("warmup", [{"chunk": warmup_chunk}], top_n=1)
                 print("✅ All transformer models loaded and ready.")
             except Exception as warmup_err:
                 print(f"⚠️ Pre-loading notice: {warmup_err}")
-                
+
             st.session_state.pipeline = True
 
 # Main Layout: 2 Columns (Query Interface & File Ingestion)
@@ -155,13 +169,13 @@ col1, col2 = st.columns([2, 1], gap="large")
 with col1:
     st.markdown('<div class="section-header">🔍 Query Interface</div>', unsafe_allow_html=True)
     st.write("")
-    
+
     user_query = st.text_input(
-        "Enter your inquiry:", 
+        "Enter your inquiry:",
         placeholder="e.g., What are the rules regarding campus Wi-Fi network utilization?",
-        label_visibility="visible"
+        label_visibility="visible",
     )
-    
+
     if st.button("Execute Intelligence Query", type="primary", use_container_width=True):
         if not user_query.strip():
             st.warning("Query error: Input cannot be empty.")
@@ -170,19 +184,19 @@ with col1:
                 try:
                     if st.session_state.pipeline_mode == "microservice":
                         response = requests.post(
-                            f"{BACKEND_API_URL}/v1/ask",
-                            json={"question": user_query},
-                            timeout=60
+                            f"{BACKEND_API_URL}/v1/ask", json={"question": user_query}, timeout=60
                         )
                         if response.status_code == 200:
                             payload = response.json()
                             st.markdown("### 🤖 Synthesized Knowledge Output")
                             st.success(payload["answer"])
-                            
+
                             st.markdown("### 🛡️ Citation Trace Integrity Diagnostics")
                             v_matrix = payload["verification_matrix"]
                             if v_matrix.get("is_valid", False):
-                                st.info("✅ Verification Complete: All assertions map to document source chunks.")
+                                st.info(
+                                    "✅ Verification Complete: All assertions map to document source chunks."
+                                )
                             else:
                                 st.error("⚠️ Verification Warning: Claims failed index validation.")
                                 if v_matrix.get("flagged_issues"):
@@ -190,40 +204,54 @@ with col1:
                         else:
                             st.error(f"Backend API Error ({response.status_code}): {response.text}")
                     else:
-                        hybrid_candidates = st.session_state.retriever.retrieve(user_query, top_k=config.RETRIEVAL_TOP_K)
-                        
+                        hybrid_candidates = st.session_state.retriever.retrieve(
+                            user_query, top_k=config.RETRIEVAL_TOP_K
+                        )
+
                         if not hybrid_candidates:
-                            st.info("System Notice: Index is currently empty. Please upload documents first.")
+                            st.info(
+                                "System Notice: Index is currently empty. Please upload documents first."
+                            )
                         else:
-                            reranked = st.session_state.reranker.rerank(user_query, hybrid_candidates, top_n=config.RERANK_TOP_N)
-                            payload = st.session_state.generator.generate_answer(user_query, reranked)
-                            
+                            reranked = st.session_state.reranker.rerank(
+                                user_query, hybrid_candidates, top_n=config.RERANK_TOP_N
+                            )
+                            payload = st.session_state.generator.generate_answer(
+                                user_query, reranked
+                            )
+
                             st.markdown("### 🤖 Synthesized Knowledge Output")
                             st.success(payload["answer"])
-                            
-                            v_matrix = CitationVerifier.verify_citations(payload["answer"], reranked)
-                            
+
+                            v_matrix = CitationVerifier.verify_citations(
+                                payload["answer"], reranked
+                            )
+
                             st.markdown("### 🛡️ Citation Trace Integrity Diagnostics")
                             if v_matrix.get("is_valid", False):
-                                st.info("✅ Verification Complete: All assertions map to document source chunks.")
+                                st.info(
+                                    "✅ Verification Complete: All assertions map to document source chunks."
+                                )
                             else:
                                 st.error("⚠️ Verification Warning: Claims failed index validation.")
                                 if v_matrix.get("flagged_issues"):
                                     st.json(v_matrix["flagged_issues"])
-                                    
+
                 except Exception as e:
                     st.error(f"Pipeline Error: {e}")
 
 with col2:
-    st.markdown('<div class="section-header">📂 Ingestion Control Panel</div>', unsafe_allow_html=True)
-    st.write("")
-    
-    uploaded_file = st.file_uploader(
-        "Ingest Knowledge Base Asset:", 
-        type=["txt", "md", "pdf", "html", "htm"],
-        help="Supported formats: PDF, Markdown, TXT, HTML"
+    st.markdown(
+        '<div class="section-header">📂 Ingestion Control Panel</div>', unsafe_allow_html=True
     )
-    
+    st.write("")
+
+    uploaded_file = st.file_uploader(
+        "Ingest Knowledge Base Asset:",
+        type=["txt", "md", "pdf", "html", "htm"],
+        help="Supported formats: PDF, Markdown, TXT, HTML",
+    )
+
     if st.button("Trigger Asset Ingestion Pipeline", use_container_width=True):
         if uploaded_file is None:
             st.warning("Please select a file first.")
@@ -240,66 +268,84 @@ with col2:
 
                     with open(temp_file_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
-                    
+
                     if st.session_state.pipeline_mode == "microservice":
                         status_box.write("Uploading to remote microservice API...")
                         response = requests.post(
                             f"{BACKEND_API_URL}/v1/ingest",
                             json={"file_path": str(temp_file_path)},
-                            timeout=120
+                            timeout=120,
                         )
                         if response.status_code == 200:
                             res_data = response.json()
-                            status_box.update(label=f"✅ Asset Indexed: {res_data.get('chunks_indexed', 0)} chunks processed.", state="complete")
+                            status_box.update(
+                                label=f"✅ Asset Indexed: {res_data.get('chunks_indexed', 0)} chunks processed.",
+                                state="complete",
+                            )
                             st.balloons()
                         else:
-                            status_box.update(label=f"❌ Ingestion Failed: {response.text}", state="error")
+                            status_box.update(
+                                label=f"❌ Ingestion Failed: {response.text}", state="error"
+                            )
                     else:
                         status_box.write("Parsing document text...")
                         document = st.session_state.parser.process_file(str(temp_file_path))
-                        
+
                         if document.metadata.file_type == "md":
                             status_box.write("Splitting Markdown sections...")
                             raw_chunks = ChunkingEngine.structure_aware_markdown_chunk(document)
                         else:
-                            status_box.write(f"Splitting .{document.metadata.file_type} via character window...")
-                            raw_chunks = ChunkingEngine.fixed_size_chunk(
-                                document, 
-                                chunk_size=config.CHUNK_SIZE, 
-                                chunk_overlap=config.CHUNK_OVERLAP
+                            status_box.write(
+                                f"Splitting .{document.metadata.file_type} via character window..."
                             )
-                        
+                            raw_chunks = ChunkingEngine.fixed_size_chunk(
+                                document,
+                                chunk_size=config.CHUNK_SIZE,
+                                chunk_overlap=config.CHUNK_OVERLAP,
+                            )
+
                         def ui_embedding_fn(texts):
                             batch_size = 16
                             all_embeddings = []
                             for i in range(0, len(texts), batch_size):
-                                batch_texts = texts[i:i + batch_size]
-                                batch_res = st.session_state.retriever.dense_index.embedding_fn(batch_texts)
+                                batch_texts = texts[i : i + batch_size]
+                                batch_res = st.session_state.retriever.dense_index.embedding_fn(
+                                    batch_texts
+                                )
                                 all_embeddings.extend(batch_res)
                             return all_embeddings
-                            
+
                         status_box.write("Deduplicating redundant chunks...")
-                        clean_chunks = st.session_state.deduplicator.deduplicate(raw_chunks, embedding_fn=ui_embedding_fn)
-                        
+                        clean_chunks = st.session_state.deduplicator.deduplicate(
+                            raw_chunks, embedding_fn=ui_embedding_fn
+                        )
+
                         if not clean_chunks:
-                            status_box.update(label="ℹ️ Duplicate content skipped.", state="complete")
+                            status_box.update(
+                                label="ℹ️ Duplicate content skipped.", state="complete"
+                            )
                         else:
-                            status_box.write(f"Indexing {len(clean_chunks)} chunks into sparse and vector stores...")
+                            status_box.write(
+                                f"Indexing {len(clean_chunks)} chunks into sparse and vector stores..."
+                            )
                             st.session_state.retriever.sparse_index.index_chunks(clean_chunks)
-                            
+
                             vector_batch_size = 25
                             for j in range(0, len(clean_chunks), vector_batch_size):
-                                sub_batch = clean_chunks[j:j + vector_batch_size]
+                                sub_batch = clean_chunks[j : j + vector_batch_size]
                                 st.session_state.retriever.dense_index.index_chunks(sub_batch)
-                            
+
                             status_box.update(label="✅ Ingestion Succeeded!", state="complete")
                             st.balloons()
-                        
+
                 except Exception as e:
                     status_box.update(label=f"❌ Ingestion Failed: {e}", state="error")
                 finally:
-                    if 'uploaded_file' in locals():
+                    if "uploaded_file" in locals():
                         del uploaded_file
                     gc.collect()
 
-st.markdown('<div class="footer-text">Enterprise Hybrid RAG Engine Node v1.0.0 • Architecture: Cosine HNSW (ChromaDB) + BM25 Lexical Inverted Index</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="footer-text">Enterprise Hybrid RAG Engine Node v1.0.0 • Architecture: Cosine HNSW (ChromaDB) + BM25 Lexical Inverted Index</div>',
+    unsafe_allow_html=True,
+)

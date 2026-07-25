@@ -27,23 +27,23 @@ class HybridRetriever:
         for rank, res in enumerate(sparse_results):
             chunk: Chunk = res["chunk"]
             chunk_id = chunk.id
-            
+
             if chunk_id not in rrf_scores:
                 rrf_scores[chunk_id] = {"chunk": chunk, "score": 0.0, "sources": ["sparse"]}
-            
+
             rrf_scores[chunk_id]["score"] += 1.0 / (rrf_k + (rank + 1))
 
         # 2. Process Dense (ChromaDB Vector) search rankings
         for rank, res in enumerate(dense_results):
             chunk_id = res["chunk_id"]
-            
+
             if chunk_id not in rrf_scores:
                 meta = res["metadata"]
                 metadata = ChunkMetadata(
                     source_path=meta["source_path"],
                     file_type=meta["file_type"],
                     chunk_index=meta["chunk_index"],
-                    parent_document_id=meta["parent_document_id"]
+                    parent_document_id=meta["parent_document_id"],
                 )
                 chunk = Chunk(id=chunk_id, page_content=res["text"], metadata=metadata)
                 rrf_scores[chunk_id] = {"chunk": chunk, "score": 0.0, "sources": ["dense"]}
