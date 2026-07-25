@@ -2,7 +2,6 @@ import logging
 from typing import List, Dict, Any
 import torch
 from sentence_transformers import CrossEncoder
-from src.ingestion.schemas import Chunk
 
 logger = logging.getLogger(__name__)
 
