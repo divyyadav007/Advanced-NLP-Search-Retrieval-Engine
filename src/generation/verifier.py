@@ -1,43 +1,41 @@
 import re
 from typing import List, Dict, Any
 
+
 class CitationVerifier:
-    """Deterministic security auditor tracking character-span lineage across generations."""
+    """Verifies bracketed citations in LLM responses against provided source chunks."""
 
     @staticmethod
     def verify_citations(llm_answer: str, top_chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Scans bracketed annotations and cross-references source plaintext availability."""
-        # Find all citation matches like [1], [2], [1][2]
+        """
+        Scan bracketed citation references (e.g. [1], [2]) in the LLM answer and verify 
+        that they correspond to valid, non-empty context chunk indices.
+        """
         citation_pattern = re.compile(r'\[(\d+)\]')
         matches = citation_pattern.findall(llm_answer)
         
-        # Cast tracking elements to distinct integers
-        extracted_indices = list(set(int(m) for m in matches))
-        
+        extracted_indices = sorted(list(set(int(m) for m in matches)))
         flagged_citations = {}
-        is_completely_valid = True
+        is_valid = True
 
         for index in extracted_indices:
-            # Shift array position back to align with 0-based indexing
             array_slot = index - 1
             
-            # Edge Case: AI cited an index that wasn't even provided (e.g., [6] when top_k=5)
+            # Check if cited index is out of bounds
             if array_slot < 0 or array_slot >= len(top_chunks):
-                flagged_citations[f"[{index}]"] = "MALFORMED_INDEX: This context block index does not exist."
-                is_completely_valid = False
+                flagged_citations[f"[{index}]"] = "MALFORMED_INDEX: Context block index does not exist."
+                is_valid = False
                 continue
 
-            chunk_text = top_chunks[array_slot]["chunk"].page_content.lower()
-            
-            # Check if there is meaningful substring leakage or if the data correlates.
-            # In a heavy production engine, this runs semantic token matching.
-            # For our guardrail, we trace index bounds and flag structure existence.
+            chunk_text = top_chunks[array_slot]["chunk"].page_content.strip()
             if not chunk_text:
-                flagged_citations[f"[{index}]"] = "EMPTY_CONTEXT: Target chunk carried zero text payload."
-                is_completely_valid = False
+                flagged_citations[f"[{index}]"] = "EMPTY_CONTEXT: Target chunk contains no text content."
+                is_valid = False
+
+        validated_indices = [idx for idx in extracted_indices if f"[{idx}]" not in flagged_citations]
 
         return {
-            "is_valid": is_completely_valid,
+            "is_valid": is_valid,
             "flagged_issues": flagged_citations,
-            "validated_indices": [idx for idx in extracted_indices if f"[{idx}]" not in flagged_citations]
+            "validated_indices": validated_indices
         }

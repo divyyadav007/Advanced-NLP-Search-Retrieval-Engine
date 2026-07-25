@@ -1,88 +1,81 @@
 import os
 import re
 import logging
-from typing import Any
 from pypdf import PdfReader
 from bs4 import BeautifulSoup
 from src.ingestion.schemas import Document, DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
+
 class DocumentParserRouter:
-    """Enterprise document routing engine with embedded strict unicode sanitization."""
+    """Extracts text from PDF, HTML, Markdown, and TXT files with unicode sanitization."""
 
     @staticmethod
     def sanitize_unicode_string(raw_text: str) -> str:
         """
-        Removes unpaired surrogates, null bytes, and corrupted characters 
-        that cause Pydantic v2 to throw string_unicode validation errors.
+        Clean text string to prevent Pydantic unicode validation errors and vector DB crashes.
+        - Strips unpaired UTF-16 surrogates (\ud800-\udfff)
+        - Removes null bytes (\x00)
+        - Replaces corrupted PDF bullet characters
+        - Fixes glued words from PDF extraction (e.g., 'laiddownby' -> 'laiddown by')
         """
         if not raw_text:
             return ""
         
-        # Step 1: Strip out unpaired surrogates (\ud800 to \udfff) which choke Pydantic's Rust validator
+        # 1. Remove unpaired surrogates which cause Pydantic Rust validator errors
         clean_chars = [char for char in raw_text if not ('\ud800' <= char <= '\udfff')]
-        text_without_surrogates = "".join(clean_chars)
+        text = "".join(clean_chars)
         
-        # Step 2: Force encode/decode pass to drop any non-utf8 compliant byte sequences
-        utf8_bytes = text_without_surrogates.encode("utf-8", errors="ignore")
-        clean_string = utf8_bytes.decode("utf-8", errors="ignore")
-        
-        # Step 3: Remove hidden null bytes (\x00) which break vector database indexing operations
-        clean_string = clean_string.replace("\x00", "")
+        # 2. Drop non-UTF-8 compliant bytes and null characters
+        text = text.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+        text = text.replace("\x00", "")
 
-        # =====================================================================
-        # NEW BUG FIX: Text Normalization for Bullet Points & Word Gluing
-        # =====================================================================
-        # 1. Replace corrupted PDF bullet characters () with standard clean dashes (-)
-        clean_string = clean_string.replace("", "\n - ")
+        # 3. Replace corrupted PDF bullet points with standard dashes
+        text = text.replace("", "\n - ")
         
-        # 2. Fix word gluing issues where lowercase letters stick to lowercase/uppercase (e.g., laidby -> laid by)
-        # This regex injects space before common structural transition keywords if glued
-        clean_string = re.sub(r'([a-z])(based|by|on|with|under|from|to|for|rules|procedures)', r'\1 \2', clean_string)
+        # 4. Insert space before glued transition words resulting from PDF line joins
+        pattern = r'([a-z])(based|by|down|under|from|to|for|rules|procedures)\b'
+        for _ in range(2):
+            text = re.sub(pattern, r'\1 \2', text)
         
-        return clean_string
+        return text
 
     def _parse_pdf(self, file_path: str) -> str:
-        """Extracts text loops from standard PDF layers safely."""
+        """Extract text from PDF pages."""
         try:
             reader = PdfReader(file_path)
-            extracted_pages = []
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    extracted_pages.append(text)
-            return " \n ".join(extracted_pages)
-        except Exception as e:
-            raise ValueError(f"Failed decoding PDF binary layers: {str(e)}")
+            pages_text = [page.extract_text() for page in reader.pages if page.extract_text()]
+            return " \n ".join(pages_text)
+        except Exception as err:
+            raise ValueError(f"Failed to extract text from PDF file '{file_path}': {err}")
 
     def _parse_html(self, file_path: str) -> str:
-        """Strips markup nodes from web structures."""
+        """Extract text from HTML files using BeautifulSoup."""
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 soup = BeautifulSoup(f.read(), "html.parser")
             return soup.get_text(separator=" \n ")
-        except Exception as e:
-            raise ValueError(f"Failed extracting text markup blocks: {str(e)}")
+        except Exception as err:
+            raise ValueError(f"Failed to parse HTML file '{file_path}': {err}")
 
     def _parse_txt(self, file_path: str) -> str:
-        """Reads flat text files."""
+        """Read text from flat text files."""
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()
-        except Exception as e:
-            raise ValueError(f"Failed loading raw string buffers: {str(e)}")
+        except Exception as err:
+            raise ValueError(f"Failed to read file '{file_path}': {err}")
 
     def process_file(self, file_path: str) -> Document:
-        """Central orchestration node mapping file extensions to clean Pydantic documents."""
+        """Parse file content based on extension and return a sanitized Document object."""
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Target track asset missing from disk: {file_path}")
+            raise FileNotFoundError(f"File not found on disk: {file_path}")
 
         ext = os.path.splitext(file_path)[1].lower().lstrip(".")
         if not ext:
             ext = "txt"
 
-        # Routing sequence execution
         if ext == "pdf":
             raw_text = self._parse_pdf(file_path)
         elif ext in ["html", "htm"]:
@@ -90,18 +83,15 @@ class DocumentParserRouter:
         elif ext in ["txt", "md"]:
             raw_text = self._parse_txt(file_path)
         else:
-            logger.warning(f"Unknown extension '.{ext}'. Falling back to raw string stream layout.")
+            logger.warning(f"Unknown file extension '.{ext}'. Falling back to plain text parser.")
             raw_text = self._parse_txt(file_path)
 
-        # FIXED: Core Sanitization Filter call injected right before the Pydantic construction window
         sanitized_content = self.sanitize_unicode_string(raw_text)
 
-        # Build and return the strict 100% unicode compliant Pydantic Schema model
         return Document(
             page_content=sanitized_content,
             metadata=DocumentMetadata(
                 source_path=file_path,
-                file_type=ext,
-                parent_document_id=os.path.basename(file_path)
+                file_type=ext
             )
         )

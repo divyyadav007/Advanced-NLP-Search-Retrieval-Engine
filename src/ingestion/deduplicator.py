@@ -1,13 +1,17 @@
+import logging
 import numpy as np
 from typing import List, Callable
 from src.ingestion.schemas import Chunk
 
+logger = logging.getLogger(__name__)
+
+
 class ChunkDeduplicator:
-    """The enterprise engine tasked with purging redundant semantic vectors from ingestion arrays."""
+    """Removes semantically duplicate chunks based on vector cosine similarity."""
 
     @staticmethod
     def calculate_cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-        """Computes the angular distance between two dense numeric embeddings."""
+        """Calculate cosine similarity between two 1D numpy vector arrays."""
         dot_product = np.dot(vec_a, vec_b)
         norm_a = np.linalg.norm(vec_a)
         norm_b = np.linalg.norm(vec_b)
@@ -23,31 +27,26 @@ class ChunkDeduplicator:
         embedding_fn: Callable[[List[str]], List[List[float]]], 
         threshold: float = 0.95
     ) -> List[Chunk]:
-        """Scans multi-chunk payloads and drops elements crossing the similarity threshold barrier."""
+        """Filter out chunks whose embedding similarity with an already accepted chunk exceeds threshold."""
         if not chunks:
             return []
 
-        # Step 1: Bulk extraction of textual body payloads for network efficiency
+        # Generate dense embeddings for all chunk text payloads in bulk
         texts = [chunk.page_content for chunk in chunks]
-        
-        # Step 2: Compute dense representations via the injected vector embedding function
         embeddings_list = embedding_fn(texts)
         embeddings = [np.array(vec) for vec in embeddings_list]
 
-        unique_chunks = []
+        unique_chunks: List[Chunk] = []
         seen_vectors: List[np.ndarray] = []
         removed_count = 0
 
-        # Step 3: FIXED - Optimized deduplication with early termination and clustering hints
-        # For large batches, consider locality-sensitive hashing (LSH) for O(n) performance
         for idx, current_vector in enumerate(embeddings):
             is_duplicate = False
             
-            # Check against seen vectors (limited to recent ones for efficiency)
-            check_limit = min(len(seen_vectors), 50)  # Only compare against last 50 vectors
-            for seen_vector in seen_vectors[-check_limit:]:
+            # Compare current chunk vector against recently accepted vectors (up to last 50)
+            check_window = seen_vectors[-50:] if len(seen_vectors) > 50 else seen_vectors
+            for seen_vector in check_window:
                 similarity = self.calculate_cosine_similarity(current_vector, seen_vector)
-                
                 if similarity > threshold:
                     is_duplicate = True
                     removed_count += 1
@@ -57,10 +56,7 @@ class ChunkDeduplicator:
                 unique_chunks.append(chunks[idx])
                 seen_vectors.append(current_vector)
         
-        # Log deduplication stats
         if removed_count > 0:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.info(f"Deduplicated {removed_count} chunks (threshold={threshold})")
 
         return unique_chunks

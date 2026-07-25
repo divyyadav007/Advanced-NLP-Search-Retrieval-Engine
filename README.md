@@ -1,292 +1,233 @@
-# Enterprise Hybrid RAG Engine for Internal Documents
+# Enterprise Hybrid RAG Engine
 
-An enterprise-grade, asynchronous, and fully decoupled Retrieval-Augmented Generation (RAG) engine engineered to perform accurate, citation-verified question answering over complex institutional compliance specifications and corporate PDF/HTML/Markdown files.
-
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
-[![Docker](https://img.shields.io/badge/Orchestration-Docker-2496ED.svg)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+A Retrieval-Augmented Generation (RAG) system combining lexical keyword search (BM25) and dense vector search (ChromaDB) to provide accurate, citation-backed answers over internal documents.
 
 ---
 
-## Short Project Summary
-This project implements a complete RAG pipeline featuring double-engine retrieval (lexical BM25 and semantic vector search) combined using Reciprocal Rank Fusion (RRF) and re-ranked using a neural Cross-Encoder model. The system operates either as a standalone local desktop pipeline or as a decoupled production-ready microservice architecture. A deterministic citation verification guardrail matches LLM-generated assertions directly back to character spans in document chunks to prevent hallucination drift.
+## Overview
+
+### What This Project Does
+This project processes internal documents (PDF, Markdown, HTML, TXT), stores them in search indexes, and answers user questions by retrieving relevant context and generating grounded responses using a Large Language Model (LLM).
+
+### What Problem It Solves
+Standard keyword search fails when users ask questions using synonyms, while pure vector search often misses exact policy numbers, codes, or technical identifiers. Additionally, LLMs can generate plausible but incorrect answers (hallucinations) if not grounded in source text. 
+
+This engine solves these issues by pairing keyword search with vector search, refining results with a re-ranker, and running an automated citation check to verify every answer against source text.
+
+### Who Should Use It
+- Organizations managing internal policy, compliance, or HR handbooks.
+- Developers building domain-specific document search interfaces.
+- AI engineers looking for a clean hybrid retrieval and re-ranking baseline.
 
 ---
 
-## Project Preview
-![Streamlit Interface Mockup](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
-*Streamlit Dashboard featuring Query Interfaces, Citation Verifiers, and the Asset Ingestion panel.*
+## Features
 
----
-
-## Key Features
-* **Dual-Index Search Ingress**: Merges exact keyword matching (**BM25Okapi**) with neural similarity search (**ChromaDB HNSW graph**).
-* **Reciprocal Rank Fusion (RRF)**: Fuses sparse and dense candidate lists using rank-based reciprocal scaling parameters.
-* **Neural Re-Ranking Pass**: Maximizes context density and filters background noise using a Cross-Encoder (`ms-marco-MiniLM-L-6-v2`).
-* **Microservices Integration**: Decoupled design where the UI can offload indexing and query execution to the FastAPI backend service.
-* **Citation Trace Auditing**: Deterministically audits bracketed LLM references (e.g. `[1]`) against source index spans to ensure truthfulness.
-* **Unicode & Text Normalization**: Prevents database and Pydantic validation crashes by filtering null bytes, surrogates, and PDF bullet extraction gluing errors.
-* **Semantic Deduplicator Node**: Employs cosine embeddings to remove redundant incoming chunks (>95% similarity) to minimize LLM token costs.
+- **Multi-Format Ingestion**: Supports parsing text from PDF, Markdown, HTML, and TXT files.
+- **Unicode & Text Cleaning**: Removes null bytes and corrupted PDF characters to prevent parsing and database errors.
+- **Header & Window Chunking**: Uses Markdown header boundaries for structured docs and sliding character windows for plain text.
+- **Semantic Chunk Deduplication**: Drops duplicate text chunks with >95% similarity before indexing to save storage and LLM tokens.
+- **Hybrid Search (RRF)**: Combines sparse BM25 keyword search with dense ChromaDB vector search using Reciprocal Rank Fusion.
+- **Cross-Encoder Re-Ranking**: Re-scores top search results with a Cross-Encoder transformer model to select the most relevant context.
+- **Grounded Answer Generation**: Uses Groq API (`llama-3.1-8b-instant`) in JSON mode to output structured answers.
+- **Citation Verification Guardrail**: Scans bracketed citations (e.g. `[1]`) to ensure answers link directly back to valid source context.
+- **Automated RAG Benchmarking**: Includes an LLM-as-a-Judge script (`src/evaluation/metrics_runner.py`) measuring Faithfulness and Answer Relevancy.
 
 ---
 
 ## Architecture Overview
 
-### 1. Overall System Architecture
-Shows the decoupled ingestion processor, data storage layouts, and query-time neural inference pipeline:
+When a document is uploaded, it is cleaned, split into chunks, deduplicated, and indexed into both a BM25 sparse index and a ChromaDB dense vector store.
+
+When a query is submitted, both search indexes retrieve candidate chunks. Reciprocal Rank Fusion (RRF) merges the results, a Cross-Encoder re-ranks top candidates, the LLM generates an answer based on those context blocks, and a verifier checks the citations.
 
 ```mermaid
 graph TD
-    A[Raw Docs: PDF, HTML, MD, TXT] --> B[Sanitization & Normalization]
-    B --> C[Structure-Aware Chunking]
-    C --> D[Semantic Deduplicator]
-    D --> E[Parallel Indexing Ingress]
-    E --> F[Dense Vector Index: ChromaDB]
-    E --> G[Sparse Index: Rank-BM25]
-    
-    H[User Query] --> I[Hybrid Search Retriever]
-    I --> F
-    I --> G
-    F --> J[Reciprocal Rank Fusion RRF]
-    G --> J
-    J --> K[Cross-Encoder Reranker]
-    K --> L[Grounded LLM Generator]
-    L --> M[Citation Verifier Guardrail]
-    M --> N[Grounded JSON Answer]
-```
+    A[Source Documents] --> B[Sanitization & Text Cleaning]
+    B --> C[Chunking Engine]
+    C --> D[Semantic Deduplication]
+    D --> E[Sparse BM25 Index]
+    D --> F[Dense Vector Index: ChromaDB]
 
-### 2. Request Flow
-Traces the execution sequence of a user question through the microservice boundaries:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor UI as Streamlit UI
-    participant API as FastAPI Backend
-    participant Hybrid as Hybrid Retriever
-    participant Rerank as Cross-Encoder Reranker
-    participant LLM as LLM Inference (Groq)
-    participant Verifier as Citation Verifier
-    
-    UI->>API: POST /v1/ask {question}
-    activate API
-    API->>Hybrid: retrieve(question)
-    activate Hybrid
-    Hybrid-->>API: Return sparse & dense candidate blocks
-    deactivate Hybrid
-    
-    API->>Rerank: rerank(candidates)
-    activate Rerank
-    Rerank-->>API: Return top-N re-ranked chunks
-    deactivate Rerank
-    
-    API->>LLM: generate_answer(query, top-N chunks)
-    activate LLM
-    LLM-->>API: Return JSON response {answer, is_context_sufficient}
-    deactivate LLM
-    
-    API->>Verifier: verify_citations(answer, chunks)
-    activate Verifier
-    Verifier-->>API: Return citation validation report
-    deactivate Verifier
-    
-    API-->>UI: Return merged results & validation matrix
-    deactivate API
-```
-
-### 3. Data Flow
-Visualizes how document data is processed and distributed into long-term memory indexes:
-
-```mermaid
-flowchart LR
-    File[Uploaded Document] --> Parser[_parse_pdf / _parse_html / _parse_txt]
-    Parser --> Sanitizer[sanitize_unicode_string]
-    Sanitizer --> Chunker[ChunkingEngine]
-    Chunker --> Deduplicator[ChunkDeduplicator]
-    
-    subgraph Long-Term Index Storage
-        Deduplicator -->|Index Chunks| SparseIndex[sparse_index.pkl]
-        Deduplicator -->|Upsert Chunks| DenseIndex[(ChromaDB HNSW SQLite)]
-    end
-```
-
-### 4. RAG Pipeline
-Illustrates the exact math and filtering logic applied at each step of the retrieval-generation loop:
-
-```mermaid
-graph TD
-    Query[User Query] --> Dense[Dense Embedding Search]
-    Query --> Sparse[BM25 keyword search]
-    Dense -->|Top 20 candidates| Fusion[Reciprocal Rank Fusion: 1/k+rank]
-    Sparse -->|Top 20 candidates| Fusion
-    Fusion -->|Top 10 candidates| Reranker[Neural Cross-Encoder: ms-marco]
-    Reranker -->|Top 5 Context Blocks| Generator[Llama 3.1 LLM Ingestion]
-    Generator -->|Grounded Generation| Verifier[Post-Gen Regex Citation Check]
-    Verifier --> Output[Citation-Verified Output]
+    G[User Query] --> E
+    G --> F
+    E --> H[Reciprocal Rank Fusion RRF]
+    F --> H
+    H --> I[Cross-Encoder Reranker]
+    I --> J[Grounded LLM Generation: Groq]
+    J --> K[Citation Verifier Guardrail]
+    K --> L[Verified Response]
 ```
 
 ---
 
 ## Tech Stack
-* **Core RAG Logic**: `SentenceTransformers` (Embeddings & Cross-Encoder), `Rank-BM25` (BM25Okapi)
-* **Vector Database**: `ChromaDB` (SQLite/HNSW local backend)
-* **LLM Engine**: `Groq SDK` (Llama-3.1-8b-instant inference)
-* **Backend Web Framework**: `FastAPI` + `Uvicorn`
-* **Frontend Web Framework**: `Streamlit`
-* **Orchestration**: `Docker` & `Docker Compose`
-* **Testing & Quality**: `Pytest`, `Ruff`
+
+| Category | Technology | Usage Rationale |
+| :--- | :--- | :--- |
+| **Languages** | Python | Core programming language for AI/ML pipelines and API backend. |
+| **Backend** | FastAPI / Uvicorn | High-performance asynchronous web framework for REST API endpoints. |
+| **Frontend** | Streamlit | Python-native web interface framework for interactive dashboards. |
+| **AI / ML** | SentenceTransformers | Local embedding model (`all-MiniLM-L6-v2`) and re-ranker (`ms-marco-MiniLM-L-6-v2`). |
+| **AI / ML** | Rank-BM25 | BM25Okapi algorithm implementation for lexical keyword search. |
+| **AI / ML** | Groq SDK | High-speed LLM inference API (`llama-3.1-8b-instant`). |
+| **Database** | ChromaDB | Local vector database using HNSW graph indexing and persistent SQLite storage. |
+| **Tools** | Docker / Compose | Containerization for reproducible microservice deployment. |
+| **Tools** | Pytest | Test framework for unit and API route verification. |
 
 ---
 
-## Project Structure
+## Folder Structure
+
 ```text
-├── .github/
-│   └── workflows/
-│       ├── lint.yml               # Automated code lint check (Ruff)
-│       └── test.yml               # Automated unit tests check (Pytest)
-├── .streamlit/
-│   └── config.toml                # Custom Streamlit UI parameters
-├── sample_data/
-│   └── Policy-Document.md         # Reference document matching Golden Test suite
-├── src/
-│   ├── config.py                  # AppConfig path/parameters management
-│   ├── main.py                    # FastAPI entrypoint endpoints routing
-│   ├── evaluation/
-│   │   └── metrics_runner.py      # LLM-as-a-Judge Golden Test execution suite
-│   ├── generation/
-│   │   ├── generator.py           # Grounded Llama Answer generator via Groq
-│   │   └── verifier.py            # Citation trace verification engine
-│   ├── indexing/
-│   │   ├── dense.py               # HNSW vector database indexing interface
-│   │   ├── sparse.py              # BM25 pickle indexing interface
-│   │   └── hybrid_retriever.py    # Reciprocal Rank Fusion execution layer
-│   ├── ingestion/
-│   │   ├── chunkers.py            # Markdown and sliding window chunkers
-│   │   ├── deduplicator.py        # Semantic Cosine deduplicator
-│   │   ├── parsers.py             # Unicode sanitizers and file parsers
-│   │   └── schemas.py             # Pydantic data schemas definitions
-│   ├── reranking/
-│   │   └── cross_encoder.py       # Cross-Encoder model relevance reranker
-│   └── ui/
-│       └── app.py                 # Streamlit UI dashboard
-├── tests/
-│   ├── test_api.py                # Unit tests for FastAPI endpoint routes
-│   ├── test_ingestion.py          # Unit tests for text sanitizers/chunking
-│   ├── test_retrieval.py          # Unit tests for rank fusion logic
-│   └── test_verification.py       # Unit tests for citation check spans
-├── Dockerfile                     # Unified container environment recipe
-├── docker-compose.yaml            # Microservices composition manager
-├── pyproject.toml                 # Packaging metadata and tool parameters
-├── requirements.txt               # Pinned package requirements manifest
-├── run.py                         # Streamlit direct launcher script
-└── README.md                      # Project documentation manual
+Advanced-NLP-Search-Retrieval-Engine/
+├── data/                 # ChromaDB vector database and sparse index files
+├── sample_data/          # Reference sample policy document
+├── src/                  # Core source code modules
+│   ├── evaluation/       # RAG metric evaluation scripts
+│   ├── generation/       # LLM generation and citation verifier
+│   ├── indexing/         # BM25, ChromaDB, and hybrid retrieval logic
+│   ├── ingestion/        # Parsers, chunkers, and deduplication logic
+│   ├── reranking/        # Cross-Encoder model re-ranking
+│   └── ui/               # Streamlit application dashboard
+├── tests/                # Automated unit test suite
+├── Dockerfile            # Container definition
+├── docker-compose.yaml   # Multi-container orchestration specification
+├── Makefile              # Utility command shortcuts
+├── pyproject.toml        # Package and tool configuration
+├── requirements.txt      # Dependency manifest
+├── run.py                # Streamlit UI direct entrypoint
+└── README.md             # Project documentation
 ```
+
+### Purpose of Key Folders
+- `src/ingestion/`: Parses documents (PDF, HTML, MD, TXT), cleans text, chunks documents, and removes duplicate content.
+- `src/indexing/`: Manages sparse BM25 indexing, ChromaDB vector database storage, and Reciprocal Rank Fusion.
+- `src/reranking/`: Uses a Cross-Encoder model to select the top context blocks for the LLM.
+- `src/generation/`: Builds prompts for Groq LLM generation and verifies cited references.
+- `src/ui/`: Contains the Streamlit user dashboard code.
+- `tests/`: Unit tests for API endpoints, ingestion, retrieval, and verification logic.
 
 ---
 
 ## Installation
-Clone the repository and set up a virtual environment:
 
+### Prerequisites
+- Python 3.10, 3.11, or 3.12
+- Git
+- A Groq API key from [Groq Console](https://console.groq.com/)
+
+### Step 1: Clone Repository
 ```bash
 git clone https://github.com/divyyadav007/RAG-Pipeline-with-Hybrid-Search-Over-Internal-Docs.git
-cd RAG-Pipeline-with-Hybrid-Search-Over-Internal-Docs
+cd Advanced-NLP-Search-Retrieval-Engine
+```
 
-# Set up virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
+### Step 2: Create Virtual Environment
+```bash
+# On Linux / macOS
+python3 -m venv myvenv
+source myvenv/bin/activate
 
-# Install required dependencies
+# On Windows (PowerShell)
+python -m venv myvenv
+.\myvenv\Scripts\Activate.ps1
+```
+
+### Step 3: Install Dependencies
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
-
-## Running with Docker
-Deploy the split microservices architecture (FastAPI Backend + Streamlit Frontend) using Docker Compose:
-
+### Step 4: Configure Environment Variables
+Create a `.env` file in the root directory:
 ```bash
-# Provide your Groq API key in the shell env, then launch composition
-$env:GROQ_API_KEY="your-groq-api-key"   # On Windows PowerShell
-export GROQ_API_KEY="your-groq-api-key" # On Linux/macOS
+GROQ_API_KEY="your_groq_api_key_here"
+```
+
+### Step 5: Run Backend API
+```bash
+uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+```
+- API Documentation: `http://localhost:8000/docs`
+
+### Step 6: Run Frontend UI
+In a separate terminal window:
+```bash
+python run.py
+```
+- Web Application: `http://localhost:8501`
+
+### Running via Docker Compose
+To run both backend API and frontend UI in containers:
+```bash
+# Set environment variable and start containers
+export GROQ_API_KEY="your_groq_api_key_here"   # On Linux/macOS
+$env:GROQ_API_KEY="your_groq_api_key_here"      # On Windows PowerShell
 
 docker compose up --build
-```
-* Access the FastAPI Swagger endpoints at: `http://localhost:8000/docs`
-* Access the Streamlit Web interface at: `http://localhost:8501`
-
----
-
-## Running Locally
-
-### Option A: Standalone Mode (Single Process)
-Run Streamlit directly. The dashboard will load index engines and neural weights in-process:
-
-```bash
-python run.py
-```
-
-### Option B: Microservices Mode (Decoupled Processes)
-Start the FastAPI server and Streamlit in separate terminals:
-
-```bash
-# Terminal 1: Launch FastAPI Backend
-uvicorn src.main:app --port 8000 --reload
-
-# Terminal 2: Configure UI to point to API and launch
-export BACKEND_API_URL="http://localhost:8000" # On Linux/macOS
-$env:BACKEND_API_URL="http://localhost:8000"   # On Windows PowerShell
-python run.py
 ```
 
 ---
 
 ## Environment Variables
-* `GROQ_API_KEY`: Required. Your developer access key to Groq Cloud Services.
-* `BACKEND_API_URL`: Optional. Address of the running FastAPI server. If provided, the UI functions as a microservices client.
+
+| Variable | Description | Required |
+| :--- | :--- | :---: |
+| `GROQ_API_KEY` | API authentication key for Groq LLM inference services. | **Yes** |
+| `BACKEND_API_URL` | Base URL of backend FastAPI service. Used by Streamlit UI in microservice mode. | Optional |
+| `PYTHONPATH` | Root path for resolving local Python module imports. | Optional |
 
 ---
 
-## How it Works
-1. **Document Ingress**: Documents uploaded via the UI are saved to a shared workspace folder.
-2. **Text Normalization**: The raw texts are sanitized to remove null characters, surrogates, and glue punctuation.
-3. **Chunk Extraction**: Markdown headers trigger structure-aware segments; other layouts fallback to character sliding windows.
-4. **Deduplication**: Chunk embeddings are generated and compared. Duplicate nodes with high cosine scores are discarded.
-5. **Double Indexing**: The unique chunks are written concurrently to the ChromaDB vector collections and BM25 search indices.
+## Usage
+
+1. Open the web interface at `http://localhost:8501`.
+2. **Ingest Documents**: In the right-hand panel, upload a document (`.pdf`, `.md`, `.txt`, `.html`) and click **Trigger Asset Ingestion Pipeline**. The document will be parsed, chunked, deduplicated, and indexed.
+3. **Ask Questions**: In the left-hand panel, enter a question (e.g., *"What is the minimum attendance requirement for university exams?"*) and click **Execute Intelligence Query**.
+4. **View Output**: The dashboard displays the synthesized answer along with a citation verification badge confirming whether all cited source indices are valid.
 
 ---
 
-## Pipeline / Workflow
-When a user asks a question, the execution follows this lifecycle:
-* **Lexical retrieval**: Matches keywords in the query against the BM25 catalog.
-* **Vector retrieval**: Encodes the query and searches the Chroma DB HNSW space using Cosine similarity.
-* **Rank Fusion (RRF)**: Re-scores candidates by summing reciprocal ranks.
-* **Attention Reranking**: The Cross-Encoder calculates exact matching tokens.
-* **LLM Grounding**: The LLM receives the prompt with ranked chunks and generates an answer matching the strict JSON format.
-* **Citation Verification**: A parser verifies that all bracket citations point to valid source indices containing matching text.
+## API Overview
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Returns API status and metadata. |
+| `POST` | `/v1/ingest` | Parses, chunks, deduplicates, and indexes a file path into search stores. |
+| `POST` | `/v1/ask` | Performs hybrid search, re-ranking, LLM answer synthesis, and citation verification. |
+| `GET` | `/health` | Liveness health check endpoint. |
 
 ---
 
-## Performance Notes
-* **GPU Acceleration**: The neural Cross-Encoder automatically checks for CUDA availability and offloads tensor computations to the GPU if a graphics card is installed.
-* **Decoupled Architecture Memory Savings**: Running the Streamlit frontend in Client Mode (pointing to FastAPI) reduces local frontend memory consumption to ~40MB since no model files are loaded in-process.
+## Screenshots
+
+![Dashboard Interface](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
+*Figure 1: Streamlit User Dashboard showing Query Interface, Citation Diagnostics, and Ingestion Panel.*
 
 ---
 
 ## Future Improvements
-- [ ] Support metadata pre-filtering by category prior to hybrid search execution.
-- [ ] Implement conversational agent memory to support multi-turn query context retention.
-- [ ] Incorporate semantic chunk splits based on embedding similarity shifts.
+
+- Add metadata pre-filtering by category, document type, or date.
+- Integrate multi-turn conversational session memory.
+- Add background task queue processing for large PDF files.
+- Support fully offline LLM generation via Ollama or llama.cpp.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
+3. Run unit tests (`python -m pytest`).
+4. Commit your changes (`git commit -m 'Add AmazingFeature'`).
+5. Open a Pull Request.
 
 ---
 
 ## License
-Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
----
-
-## Contact
-Divy Yadav - [yadavdivy007@gmail.com](mailto:yadavdivy007@gmail.com)
-
-Project Link: [https://github.com/divyyadav007/RAG-Pipeline-with-Hybrid-Search-Over-Internal-Docs](https://github.com/divyyadav007/RAG-Pipeline-with-Hybrid-Search-Over-Internal-Docs)
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
