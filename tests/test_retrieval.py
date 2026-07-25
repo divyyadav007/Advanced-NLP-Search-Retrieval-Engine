@@ -1,4 +1,3 @@
-import pytest
 from src.ingestion.schemas import Chunk, ChunkMetadata
 from src.indexing.hybrid_retriever import HybridRetriever
 
