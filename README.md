@@ -19,7 +19,7 @@ To ensure reliability, the system automatically checks generated citations back 
 ---
 
 ## Project Preview
-![Streamlit Interface Mockup](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
+
 *Streamlit Interface: Ask questions, verify citations, and upload documents.*
 
 ---
