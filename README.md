@@ -16,9 +16,7 @@ This project implements a complete RAG pipeline featuring double-engine retrieva
 ---
 
 ## Project Preview
-![Streamlit Interface Mockup](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
-*Streamlit Dashboard featuring Query Interfaces, Citation Verifiers, and the Asset Ingestion panel.*
-
+<img width="1919" height="913" alt="Screenshot 2026-07-25 102350" src="https://github.com/user-attachments/assets/0c8148a6-ffe6-44ce-ab3d-1acdf43a350d" />
 ---
 
 ## Key Features
