@@ -1,4 +1,3 @@
-import pytest
 from src.ingestion.schemas import Chunk, ChunkMetadata
 from src.generation.verifier import CitationVerifier
 
