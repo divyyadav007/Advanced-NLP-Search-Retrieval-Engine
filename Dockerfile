@@ -23,9 +23,7 @@ ENV PYTHONPATH=/home/user/app
 COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Pre-download weights directly into the user's cache directory during build
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
-RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+# Transfer ownership of all source code files to the non-root user
 
 # Explicitly transfer ownership of all source code files to the non-root user
 COPY --chown=user . .
