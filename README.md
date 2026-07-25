@@ -1,37 +1,34 @@
 # Enterprise Hybrid RAG Engine
 
-A Retrieval-Augmented Generation (RAG) system combining lexical keyword search (BM25) and dense vector search (ChromaDB) to provide accurate, citation-backed answers over internal documents.
+An enterprise-grade, asynchronous, and fully decoupled Retrieval-Augmented Generation (RAG) engine engineered to perform accurate, citation-verified question answering over complex institutional compliance specifications and corporate PDF/HTML/Markdown files.
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Orchestration-Docker-2496ED.svg)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Overview
-
-### What This Project Does
-This project processes internal documents (PDF, Markdown, HTML, TXT), stores them in search indexes, and answers user questions by retrieving relevant context and generating grounded responses using a Large Language Model (LLM).
-
-### What Problem It Solves
-Standard keyword search fails when users ask questions using synonyms, while pure vector search often misses exact policy numbers, codes, or technical identifiers. Additionally, LLMs can generate plausible but incorrect answers (hallucinations) if not grounded in source text. 
-
-This engine solves these issues by pairing keyword search with vector search, refining results with a re-ranker, and running an automated citation check to verify every answer against source text.
-
-### Who Should Use It
-- Organizations managing internal policy, compliance, or HR handbooks.
-- Developers building domain-specific document search interfaces.
-- AI engineers looking for a clean hybrid retrieval and re-ranking baseline.
+## Short Project Summary
+This project implements a complete RAG pipeline featuring double-engine retrieval (lexical BM25 and semantic vector search) combined using Reciprocal Rank Fusion (RRF) and re-ranked using a neural Cross-Encoder model. The system operates either as a standalone local desktop pipeline or as a decoupled production-ready microservice architecture. A deterministic citation verification guardrail matches LLM-generated assertions directly back to character spans in document chunks to prevent hallucination drift.
 
 ---
 
-## Features
+## Project Preview
+![Streamlit Interface Mockup](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
+*Streamlit Dashboard featuring Query Interfaces, Citation Verifiers, and the Asset Ingestion panel.*
 
-- **Multi-Format Ingestion**: Supports parsing text from PDF, Markdown, HTML, and TXT files.
-- **Unicode & Text Cleaning**: Removes null bytes and corrupted PDF characters to prevent parsing and database errors.
-- **Header & Window Chunking**: Uses Markdown header boundaries for structured docs and sliding character windows for plain text.
-- **Semantic Chunk Deduplication**: Drops duplicate text chunks with >95% similarity before indexing to save storage and LLM tokens.
-- **Hybrid Search (RRF)**: Combines sparse BM25 keyword search with dense ChromaDB vector search using Reciprocal Rank Fusion.
-- **Cross-Encoder Re-Ranking**: Re-scores top search results with a Cross-Encoder transformer model to select the most relevant context.
-- **Grounded Answer Generation**: Uses Groq API (`llama-3.1-8b-instant`) in JSON mode to output structured answers.
-- **Citation Verification Guardrail**: Scans bracketed citations (e.g. `[1]`) to ensure answers link directly back to valid source context.
-- **Automated RAG Benchmarking**: Includes an LLM-as-a-Judge script (`src/evaluation/metrics_runner.py`) measuring Faithfulness and Answer Relevancy.
+---
+
+## Key Features
+* **Dual-Index Search Ingress**: Merges exact keyword matching (**BM25Okapi**) with neural similarity search (**ChromaDB HNSW graph**).
+* **Reciprocal Rank Fusion (RRF)**: Fuses sparse and dense candidate lists using rank-based reciprocal scaling parameters.
+* **Neural Re-Ranking Pass**: Maximizes context density and filters background noise using a Cross-Encoder (`ms-marco-MiniLM-L-6-v2`).
+* **Microservices Integration**: Decoupled design where the UI can offload indexing and query execution to the FastAPI backend service.
+* **Citation Trace Auditing**: Deterministically audits bracketed LLM references (e.g. `[1]`) against source index spans to ensure truthfulness.
+* **Unicode & Text Normalization**: Prevents database and Pydantic validation crashes by filtering null bytes, surrogates, and PDF bullet extraction gluing errors.
+* **Semantic Deduplicator Node**: Employs cosine embeddings to remove redundant incoming chunks (>95% similarity) to minimize LLM token costs.
 
 ---
 
