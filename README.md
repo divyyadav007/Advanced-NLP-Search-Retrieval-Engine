@@ -211,13 +211,6 @@ docker compose up --build
 
 ---
 
-## Screenshots
-
-![Dashboard Interface](https://github.com/user-attachments/assets/924d09f9-2e4f-46a9-9214-caf42d7f8794)
-*Streamlit Dashboard showing Search, Citation Diagnostics, and Document Ingestion.*
-
----
-
 ## Roadmap & Future Enhancements
 
 - Metadata pre-filtering (by category, document type, or date).
