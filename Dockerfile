@@ -20,7 +20,8 @@ WORKDIR $HOME/app
 ENV PYTHONPATH=/home/user/app
 
 # Copy requirements and install packages as the safe non-root user
-COPY --chown=user requirements.txt .
+# Install CPU-only PyTorch to save 2.5 GB of unused CUDA GPU driver disk space
+RUN pip install --no-cache-dir --user torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Transfer ownership of all source code files to the non-root user
