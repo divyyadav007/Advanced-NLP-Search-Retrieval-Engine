@@ -332,8 +332,15 @@ async def process_query(payload: QueryRequest) -> Dict[str, Any]:
 
         # 3. Grounded answer generation via Groq LLM
         if getattr(app.state, "generator", None) is None:
-            config.validate_environment()
-            app.state.generator = GroundedGenerator()
+            try:
+                config.validate_environment()
+                app.state.generator = GroundedGenerator()
+            except Exception as gen_err:
+                logger.error(f"Failed to initialize GroundedGenerator: {gen_err}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Groq LLM Generator Initialization Failed. Please verify GROQ_API_KEY in .env file: {str(gen_err)}"
+                )
         llm_output = app.state.generator.generate_answer(payload.question, elite_chunks)
 
         # 4. Verify citations against source chunks
