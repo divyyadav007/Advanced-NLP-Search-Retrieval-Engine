@@ -1,5 +1,3 @@
-<img width="1919" height="913" alt="Screenshot 2026-07-25 102350" src="https://github.com/user-attachments/assets/f2a178e3-13cf-4330-b847-a47778221f36" />
-<img width="1919" height="913" alt="Screenshot 2026-07-25 102350" src="https://github.com/user-attachments/assets/9bd94eb8-9b57-4cee-b495-c2b224e18597" />
 # Hybrid RAG Engine for Document Search & Question Answering
 
 A fast, accurate, and reliable Retrieval-Augmented Generation (RAG) system designed to answer questions from your PDF, Markdown, HTML, and TXT documents with verified citations.
