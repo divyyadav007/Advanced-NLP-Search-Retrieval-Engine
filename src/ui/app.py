@@ -230,8 +230,12 @@ with col2:
         else:
             with st.status("Ingesting document...", expanded=True) as status_box:
                 try:
-                    temp_dir = Path(config.DATA_DIR) / "uploaded_files"
-                    temp_dir.mkdir(parents=True, exist_ok=True)
+                    try:
+                        temp_dir = Path(config.DATA_DIR) / "uploaded_files"
+                        temp_dir.mkdir(parents=True, exist_ok=True)
+                    except PermissionError:
+                        temp_dir = Path("/tmp/uploaded_files")
+                        temp_dir.mkdir(parents=True, exist_ok=True)
                     temp_file_path = temp_dir / uploaded_file.name
 
                     with open(temp_file_path, "wb") as f:
