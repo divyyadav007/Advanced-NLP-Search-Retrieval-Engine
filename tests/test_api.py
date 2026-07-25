@@ -6,13 +6,10 @@ from src.main import app
 client = TestClient(app)
 
 def test_root_endpoint():
-    """Verify that root index returns correct metadata."""
+    """Verify that root index returns correct response."""
     response = client.get("/")
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
-    assert "title" in data
-    assert "version" in data
+    assert "Enterprise Hybrid RAG" in response.text
 
 def test_health_endpoint():
     """Verify that health check returns healthy status."""

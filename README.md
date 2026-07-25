@@ -214,17 +214,6 @@ docker compose up --build
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
-3. Run unit tests (`python -m pytest`).
-4. Commit your changes (`git commit -m 'Add AmazingFeature'`).
-5. Open a Pull Request.
-
----
-
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.

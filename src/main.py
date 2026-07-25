@@ -81,20 +81,180 @@ class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=5000, description="User query string")
 
 
+from fastapi.responses import HTMLResponse
+
+
 # =====================================================================
 # API ENDPOINTS
 # =====================================================================
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root_index():
-    """Return API metadata and health status."""
-    return {
-        "title": app.title,
-        "description": app.description,
-        "version": app.version,
-        "status": "healthy",
-        "docs_url": "/docs"
-    }
+    """Return API server visual landing page and interactive documentation links."""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Hybrid RAG Engine API</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); 
+            color: #f8fafc; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        .card { 
+            background: rgba(30, 41, 59, 0.75); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 16px; 
+            padding: 40px; 
+            max-width: 650px; 
+            width: 100%; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5); 
+        }
+        .badge { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            background: rgba(34, 197, 94, 0.15); 
+            color: #4ade80; 
+            border: 1px solid rgba(34, 197, 94, 0.3); 
+            padding: 6px 14px; 
+            border-radius: 20px; 
+            font-weight: 600; 
+            font-size: 0.85rem; 
+            margin-bottom: 20px; 
+        }
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background-color: #4ade80;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #4ade80;
+        }
+        h1 { 
+            font-family: 'Outfit', sans-serif; 
+            font-size: 2.3rem; 
+            margin: 0 0 12px 0; 
+            background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+        p { 
+            color: #94a3b8; 
+            font-size: 1rem; 
+            line-height: 1.6; 
+            margin-bottom: 28px; 
+        }
+        .btn-group { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 32px; 
+            flex-wrap: wrap;
+        }
+        .btn { 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 12px 24px; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            text-decoration: none; 
+            transition: all 0.2s ease; 
+            font-size: 0.95rem; 
+        }
+        .btn-primary { 
+            background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%); 
+            color: white; 
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); 
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); 
+        }
+        .btn-secondary { 
+            background: rgba(255, 255, 255, 0.08); 
+            color: #f8fafc; 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+        }
+        .btn-secondary:hover { 
+            background: rgba(255, 255, 255, 0.15); 
+            transform: translateY(-2px);
+        }
+        .endpoint-list { 
+            background: rgba(15, 23, 42, 0.6); 
+            border-radius: 12px; 
+            padding: 18px 24px; 
+            border: 1px solid rgba(255, 255, 255, 0.06); 
+        }
+        .endpoint-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .endpoint-item { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 10px 0; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
+            font-size: 0.9rem; 
+        }
+        .endpoint-item:last-child { border-bottom: none; }
+        .method { 
+            font-weight: 700; 
+            font-size: 0.75rem; 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            margin-right: 8px;
+        }
+        .post { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .get { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .path { font-family: monospace; color: #e2e8f0; }
+        .desc { color: #64748b; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="badge"><span class="pulse"></span> Engine Online & Operational</div>
+        <h1>Enterprise Hybrid RAG API</h1>
+        <p>Production-grade dual-index retrieval engine combining Lexical BM25, Dense Vector HNSW (ChromaDB), Cross-Encoder Neural Re-ranking, and Grounded Llama 3.1 LLM Generation.</p>
+        
+        <div class="btn-group">
+            <a href="/docs" class="btn btn-primary">🚀 Open API Swagger Docs (/docs)</a>
+            <a href="http://localhost:8501" target="_blank" class="btn btn-secondary">🖥️ Streamlit UI Dashboard</a>
+        </div>
+
+        <div class="endpoint-list">
+            <div class="endpoint-title">Available API Routes</div>
+            <div class="endpoint-item">
+                <div><span class="method post">POST</span><span class="path">/v1/ingest</span></div>
+                <span class="desc">Parse, chunk, deduplicate & index</span>
+            </div>
+            <div class="endpoint-item">
+                <div><span class="method post">POST</span><span class="path">/v1/ask</span></div>
+                <span class="desc">Hybrid search & LLM generation</span>
+            </div>
+            <div class="endpoint-item">
+                <div><span class="method get">GET</span><span class="path">/health</span></div>
+                <span class="desc">Liveness health check probe</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
 
 
 @app.post("/v1/ingest")
