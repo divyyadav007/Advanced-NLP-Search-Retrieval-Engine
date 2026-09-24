@@ -1,4 +1,5 @@
 """Streamlit Frontend Application Entrypoint."""
+
 import runpy
 from pathlib import Path
 
