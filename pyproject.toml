@@ -64,3 +64,6 @@ select = ["F"]
 testpaths = ["backend/tests"]
 python_files = ["test_*.py"]
 pythonpath = [".", "backend"]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
