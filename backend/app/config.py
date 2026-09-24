@@ -17,8 +17,8 @@ class AppConfig:
     # Models
     EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
     RERANKER_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    GENERATION_MODEL_NAME = "llama-3.1-8b-instant"
-    JUDGE_MODEL_NAME = "llama-3.3-70b-versatile"
+    GENERATION_MODEL_NAME = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    JUDGE_MODEL_NAME = os.getenv("GROQ_JUDGE_MODEL", "qwen/qwen3.8-27b")
 
     # Text Processing Hyperparameters
     CHUNK_SIZE = 1500

@@ -1,7 +1,7 @@
 import re
 from typing import List
-from src.config import config
-from src.ingestion.schemas import Document, Chunk, ChunkMetadata
+from app.config import config
+from app.ingestion.schemas import Document, Chunk, ChunkMetadata
 
 
 class ChunkingEngine:

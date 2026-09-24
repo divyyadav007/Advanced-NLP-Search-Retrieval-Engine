@@ -116,6 +116,8 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 data/*
+backend/data/*
+!backend/data/golden_dataset.json
 data/temp/*
 !data/temp/.gitkeep
 
@@ -218,6 +220,7 @@ docker-data/
 # ==========================================
 
 .streamlit/secrets.toml
+frontend/.streamlit/secrets.toml
 
 # ==========================================
 

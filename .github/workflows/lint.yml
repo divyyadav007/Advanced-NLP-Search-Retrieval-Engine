@@ -25,8 +25,8 @@ jobs:
 
       - name: Check formatting with Black
         run: |
-          black --check src/ tests/
+          black --check backend/ frontend/
 
       - name: Lint with Ruff
         run: |
-          ruff check src/ tests/
+          ruff check backend/ frontend/

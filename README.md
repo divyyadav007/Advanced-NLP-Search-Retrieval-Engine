@@ -84,32 +84,50 @@ graph TD
 
 ```text
 Advanced-NLP-Search-Retrieval-Engine/
-├── data/                 # Saved vector database and index files
-├── sample_data/          # Example policy documents for testing
-├── src/                  # Core source code
-│   ├── evaluation/       # RAG performance evaluation scripts
-│   ├── generation/       # LLM prompt building and citation verification
-│   ├── indexing/         # BM25, ChromaDB, and hybrid search logic
-│   ├── ingestion/        # Document parsing, chunking, and deduplication
-│   ├── reranking/        # Cross-Encoder re-ranking module
-│   └── ui/               # Streamlit web dashboard
-├── tests/                # Automated unit tests
-├── Dockerfile            # Container configuration
-├── docker-compose.yaml   # Docker service orchestration
-├── Makefile              # Utility shortcuts
-├── pyproject.toml        # Project package configuration
-├── requirements.txt      # Python dependencies
-├── run.py                # Direct entrypoint for Streamlit UI
-└── README.md             # Project documentation
+├── backend/                  # FastAPI backend microservice & core RAG engine
+│   ├── app/                  # Application modules
+│   │   ├── evaluation/       # RAG performance evaluation scripts
+│   │   ├── generation/       # LLM prompt building and citation verification
+│   │   ├── indexing/         # BM25, ChromaDB, and hybrid search logic
+│   │   ├── ingestion/        # Document parsing, chunking, and deduplication
+│   │   ├── reranking/        # Cross-Encoder re-ranking module
+│   │   ├── config.py         # Backend configuration & system paths
+│   │   └── main.py           # FastAPI application entrypoint
+│   ├── data/                 # Vector database (ChromaDB) and sparse index files
+│   ├── sample_data/          # Example policy documents for testing
+│   ├── tests/                # Automated unit and API test suite
+│   ├── Dockerfile            # Container configuration for backend API
+│   ├── requirements.txt      # Backend Python dependencies
+│   ├── run.py                # Direct runner for FastAPI backend
+│   └── README.md             # Backend service documentation
+├── frontend/                 # Streamlit web user interface
+│   ├── src/                  # Frontend source code
+│   │   └── app.py            # Streamlit dashboard application
+│   ├── .streamlit/           # Streamlit server configuration
+│   ├── app.py                # Root launcher wrapper
+│   ├── Dockerfile            # Container configuration for frontend UI
+│   ├── requirements.txt      # Lightweight frontend dependencies
+│   ├── run.py                # Direct runner for Streamlit frontend
+│   └── README.md             # Frontend dashboard documentation
+├── .devcontainer/            # VS Code remote container configuration
+├── .github/workflows/        # CI/CD pipelines (testing & linting)
+├── Dockerfile                # Root container configuration
+├── docker-compose.yaml       # Multi-service orchestration (API + UI)
+├── Makefile                  # Developer shortcuts (setup, run, test, lint)
+├── pyproject.toml            # Project package configuration & tool settings
+├── requirements.txt          # Unified dependencies
+├── run.py                    # Root entrypoint for launching UI
+└── README.md                 # Project documentation
 ```
 
 ### Folder Breakdown
-- `src/ingestion/`: Parses documents (PDF, HTML, MD, TXT), cleans text, chunks content, and removes duplicates.
-- `src/indexing/`: Handles BM25 search, ChromaDB vector storage, and result fusion.
-- `src/reranking/`: Uses a Cross-Encoder model to pick the most relevant text chunks.
-- `src/generation/`: Prompts the Groq LLM to generate answers and verifies cited sources.
-- `src/ui/`: UI code for the Streamlit dashboard.
-- `tests/`: Unit tests for APIs, ingestion, retrieval, and citation verification.
+- `backend/app/ingestion/`: Parses documents (PDF, HTML, MD, TXT), cleans text, chunks content, and removes duplicates.
+- `backend/app/indexing/`: Handles BM25 keyword search, ChromaDB vector storage, and Reciprocal Rank Fusion.
+- `backend/app/reranking/`: Uses a Cross-Encoder model (`ms-marco-MiniLM-L-6-v2`) to prioritize relevant text chunks.
+- `backend/app/generation/`: Prompts the Groq LLM and performs citation verification guardrail audits.
+- `backend/data/`: Persistent storage for ChromaDB embeddings and BM25 serialized indexes.
+- `backend/tests/`: Automated unit tests for API endpoints, ingestion, retrieval, and citation verification.
+- `frontend/src/`: Streamlit interactive dashboard with query interface, diagnostic audits, and document ingestion.
 
 ---
 
@@ -126,41 +144,47 @@ git clone https://github.com/divyyadav007/RAG-Pipeline-with-Hybrid-Search-Over-I
 cd Advanced-NLP-Search-Retrieval-Engine
 ```
 
-### 2. Create a Virtual Environment
-```bash
-# On Linux / macOS
-python3 -m venv myvenv
-source myvenv/bin/activate
-
-# On Windows (PowerShell)
-python -m venv myvenv
-.\myvenv\Scripts\Activate.ps1
-```
-
-### 3. Install Dependencies
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### 4. Set Up Environment Variables
-Create a `.env` file in the project root folder:
+### 2. Set Up Environment Variables
+Create a `.env` file in the project root folder (or inside `backend/`):
 ```bash
 GROQ_API_KEY="your_groq_api_key_here"
 ```
 
-### 5. Run the Backend API
-```bash
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-```
-- Interactive API docs available at: `http://localhost:8000/docs`
+### 3. Option A: Run Services Independently
 
-### 6. Run the Frontend UI
-In a new terminal window:
+#### Run Backend API:
 ```bash
+# In terminal 1:
+cd backend
+python -m venv venv
+# On Windows: .\venv\Scripts\Activate.ps1 | On Unix: source venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
+- Interactive Swagger API docs available at: `http://localhost:8000/docs`
+
+#### Run Frontend UI:
+```bash
+# In terminal 2:
+cd frontend
+python -m venv venv
+# On Windows: .\venv\Scripts\Activate.ps1 | On Unix: source venv/bin/activate
+pip install -r requirements.txt
 python run.py
 ```
 - Access the web interface at: `http://localhost:8501`
+
+### 4. Option B: Run via Makefile Shortcuts
+```bash
+# Terminal 1: Run Backend
+make run-backend
+
+# Terminal 2: Run Frontend
+make run-frontend
+
+# Run Tests
+make test
+```
 
 ---
 

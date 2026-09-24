@@ -34,7 +34,7 @@ EXPOSE 8501
 EXPOSE 8000
 
 # Default command launches the Streamlit UI dashboard
-CMD ["streamlit", "run", "src/ui/app.py", \
+CMD ["streamlit", "run", "frontend/src/app.py", \
      "--server.port=8501", \
      "--server.address=0.0.0.0", \
      "--server.enableCORS=false", \

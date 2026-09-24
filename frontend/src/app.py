@@ -6,32 +6,79 @@ from pathlib import Path
 from dotenv import load_dotenv
 import streamlit as st
 
+try:
+    st.set_page_config(
+        page_title="Enterprise Hybrid-RAG Dashboard",
+        page_icon="🚀",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+except Exception:
+    pass
+
 load_dotenv()
 
-# Add project root directory to Python path to ensure module imports work reliably
+# Add project root and backend directory to Python path to ensure module imports work reliably
 PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+BACKEND_DIR = str(Path(__file__).resolve().parents[2] / "backend")
+for path in (PROJECT_ROOT, BACKEND_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-from src.config import config
-from src.ingestion.parsers import DocumentParserRouter
-from src.ingestion.chunkers import ChunkingEngine
-from src.ingestion.deduplicator import ChunkDeduplicator
-from src.indexing.sparse import SparseBM25Index
-from src.indexing.dense import DenseVectorIndex
-from src.indexing.hybrid_retriever import HybridRetriever
-from src.reranking.cross_encoder import DocumentReranker
-from src.generation.generator import GroundedGenerator
-from src.generation.verifier import CitationVerifier
+# Configuration with fallback if running standalone frontend
+try:
+    from app.config import config
+except ImportError:
+    try:
+        from backend.app.config import config
+    except ImportError:
+        class AppConfigFallback:
+            CHUNK_SIZE = 1500
+            CHUNK_OVERLAP = 300
+            RETRIEVAL_TOP_K = 10
+            RERANK_TOP_N = 5
+            DATA_DIR = Path(__file__).resolve().parents[2] / "backend" / "data"
+            @classmethod
+            def validate_environment(cls):
+                pass
+        config = AppConfigFallback()
 
-BACKEND_API_URL = os.getenv("BACKEND_API_URL", "").strip().rstrip("/")
+# Standalone mode model imports (optional when communicating with backend API)
+DocumentParserRouter = None
+ChunkingEngine = None
+ChunkDeduplicator = None
+SparseBM25Index = None
+DenseVectorIndex = None
+HybridRetriever = None
+DocumentReranker = None
+GroundedGenerator = None
+CitationVerifier = None
 
-st.set_page_config(
-    page_title="Enterprise Hybrid-RAG Dashboard",
-    page_icon="🚀",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+try:
+    from app.ingestion.parsers import DocumentParserRouter
+    from app.ingestion.chunkers import ChunkingEngine
+    from app.ingestion.deduplicator import ChunkDeduplicator
+    from app.indexing.sparse import SparseBM25Index
+    from app.indexing.dense import DenseVectorIndex
+    from app.indexing.hybrid_retriever import HybridRetriever
+    from app.reranking.cross_encoder import DocumentReranker
+    from app.generation.generator import GroundedGenerator
+    from app.generation.verifier import CitationVerifier
+except ImportError:
+    try:
+        from backend.app.ingestion.parsers import DocumentParserRouter
+        from backend.app.ingestion.chunkers import ChunkingEngine
+        from backend.app.ingestion.deduplicator import ChunkDeduplicator
+        from backend.app.indexing.sparse import SparseBM25Index
+        from backend.app.indexing.dense import DenseVectorIndex
+        from backend.app.indexing.hybrid_retriever import HybridRetriever
+        from backend.app.reranking.cross_encoder import DocumentReranker
+        from backend.app.generation.generator import GroundedGenerator
+        from backend.app.generation.verifier import CitationVerifier
+    except ImportError:
+        pass
+
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000").strip().rstrip("/")
 
 # Custom CSS styling (Dark Theme with glassmorphism cards and Inter/Outfit typography)
 st.markdown(
@@ -142,10 +189,12 @@ if "pipeline" not in st.session_state:
             st.session_state.parser = DocumentParserRouter()
             st.session_state.deduplicator = ChunkDeduplicator()
 
-            # Pre-load embedding and reranker transformer models to ensure a warm start
             try:
                 st.session_state.retriever.dense_index.embedding_fn(["warmup text sequence"])
-                from src.ingestion.schemas import Chunk, ChunkMetadata
+                try:
+                    from app.ingestion.schemas import Chunk, ChunkMetadata
+                except ImportError:
+                    from backend.app.ingestion.schemas import Chunk, ChunkMetadata
 
                 warmup_meta = ChunkMetadata(
                     source_path="warmup.txt",
@@ -174,6 +223,7 @@ with col1:
         "Enter your inquiry:",
         placeholder="e.g., What are the rules regarding campus Wi-Fi network utilization?",
         label_visibility="visible",
+        key="user_query_input",
     )
 
     if st.button("Execute Intelligence Query", type="primary", use_container_width=True):

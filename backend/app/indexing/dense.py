@@ -4,8 +4,8 @@ import chromadb
 from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 from sentence_transformers import SentenceTransformer
 
-from src.ingestion.schemas import Chunk
-from src.config import config
+from app.ingestion.schemas import Chunk
+from app.config import config
 
 logger = logging.getLogger(__name__)
 

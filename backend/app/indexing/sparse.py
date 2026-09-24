@@ -5,7 +5,8 @@ import logging
 from typing import List, Dict, Any
 from rank_bm25 import BM25Okapi
 
-from src.ingestion.schemas import Chunk
+from app.ingestion.schemas import Chunk
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,8 @@ ENGLISH_STOPWORDS = {
 class SparseBM25Index:
     """Manages sparse BM25 keyword index for exact lexical searching."""
 
-    def __init__(self, storage_path: str = "data/sparse_index.pkl"):
-        self.storage_path = storage_path
+    def __init__(self, storage_path: str = None):
+        self.storage_path = storage_path or config.SPARSE_INDEX_PATH
         self.bm25: BM25Okapi = None
         self.indexed_chunks: List[Chunk] = []
 
@@ -105,8 +106,14 @@ class SparseBM25Index:
         """Deserialize stored BM25 model and chunks from disk if present."""
         if os.path.exists(self.storage_path):
             try:
+                class CompatUnpickler(pickle.Unpickler):
+                    def find_class(self, module, name):
+                        if module.startswith("src."):
+                            module = module.replace("src.", "app.", 1)
+                        return super().find_class(module, name)
+
                 with open(self.storage_path, "rb") as f:
-                    data = pickle.load(f)
+                    data = CompatUnpickler(f).load()
                     self.indexed_chunks = data["chunks"]
                     self.bm25 = data["model"]
                     logger.info(f"Loaded sparse index with {len(self.indexed_chunks)} chunks.")

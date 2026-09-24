@@ -1,5 +1,5 @@
-from src.ingestion.schemas import Chunk, ChunkMetadata
-from src.generation.verifier import CitationVerifier
+from app.ingestion.schemas import Chunk, ChunkMetadata
+from app.generation.verifier import CitationVerifier
 
 
 def test_citation_verifier_valid():

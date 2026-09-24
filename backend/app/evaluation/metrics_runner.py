@@ -4,10 +4,10 @@ import time
 from typing import List, Dict, Any
 from groq import Groq
 
-from src.config import config
-from src.indexing.hybrid_retriever import HybridRetriever
-from src.reranking.cross_encoder import DocumentReranker
-from src.generation.generator import GroundedGenerator
+from app.config import config
+from app.indexing.hybrid_retriever import HybridRetriever
+from app.reranking.cross_encoder import DocumentReranker
+from app.generation.generator import GroundedGenerator
 
 
 class RAGMetricsRunner:
@@ -122,8 +122,8 @@ class RAGMetricsRunner:
 
 if __name__ == "__main__":
     print("Initializing components for batch evaluation...")
-    from src.indexing.sparse import SparseBM25Index
-    from src.indexing.dense import DenseVectorIndex
+    from app.indexing.sparse import SparseBM25Index
+    from app.indexing.dense import DenseVectorIndex
 
     sparse = SparseBM25Index()
     dense = DenseVectorIndex()

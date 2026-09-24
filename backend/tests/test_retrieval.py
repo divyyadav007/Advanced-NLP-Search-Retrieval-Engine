@@ -1,5 +1,5 @@
-from src.ingestion.schemas import Chunk, ChunkMetadata
-from src.indexing.hybrid_retriever import HybridRetriever
+from app.ingestion.schemas import Chunk, ChunkMetadata
+from app.indexing.hybrid_retriever import HybridRetriever
 
 
 class MockSparseIndex:

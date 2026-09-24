@@ -3,7 +3,7 @@ import re
 import logging
 from pypdf import PdfReader
 from bs4 import BeautifulSoup
-from src.ingestion.schemas import Document, DocumentMetadata
+from app.ingestion.schemas import Document, DocumentMetadata
 
 logger = logging.getLogger(__name__)
 

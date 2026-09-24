@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
-from src.ingestion.schemas import Document, DocumentMetadata
-from src.ingestion.parsers import DocumentParserRouter
-from src.ingestion.chunkers import ChunkingEngine
-from src.ingestion.deduplicator import ChunkDeduplicator
+from app.ingestion.schemas import Document, DocumentMetadata
+from app.ingestion.parsers import DocumentParserRouter
+from app.ingestion.chunkers import ChunkingEngine
+from app.ingestion.deduplicator import ChunkDeduplicator
 
 
 def test_sanitize_unicode_string():

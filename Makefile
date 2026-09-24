@@ -20,26 +20,28 @@ help:
 setup:
 	python -m venv myvenv
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
+	$(PIP) install -r backend/requirements.txt
+	$(PIP) install -r frontend/requirements.txt
 
 install:
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
+	$(PIP) install -r backend/requirements.txt
+	$(PIP) install -r frontend/requirements.txt
 
 run-backend:
-	$(PYTHON) -m uvicorn src.main:app --reload --port 8000
+	$(PYTHON) backend/run.py
 
 run-frontend:
-	$(PYTHON) run.py
+	$(PYTHON) frontend/run.py
 
 test:
-	$(PYTHON) -m pytest tests/ -v
+	$(PYTHON) -m pytest backend/tests/ -v
 
 lint:
-	$(PYTHON) -m ruff check src/ tests/
+	$(PYTHON) -m ruff check backend/app/ backend/tests/ frontend/src/
 
 format:
-	$(PYTHON) -m black src/ tests/
+	$(PYTHON) -m black backend/app/ backend/tests/ frontend/src/
 
 clean:
 	rm -rf myvenv/ .venv/ build/ dist/ *.egg-info

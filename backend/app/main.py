@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path so 'app' imports work reliably from anywhere
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent)
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
 import logging
 from typing import Dict, Any
 from contextlib import asynccontextmanager
@@ -5,16 +13,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.config import config
-from src.ingestion.parsers import DocumentParserRouter
-from src.ingestion.chunkers import ChunkingEngine
-from src.ingestion.deduplicator import ChunkDeduplicator
-from src.indexing.sparse import SparseBM25Index
-from src.indexing.dense import DenseVectorIndex
-from src.indexing.hybrid_retriever import HybridRetriever
-from src.reranking.cross_encoder import DocumentReranker
-from src.generation.generator import GroundedGenerator
-from src.generation.verifier import CitationVerifier
+from app.config import config
+from app.ingestion.parsers import DocumentParserRouter
+from app.ingestion.chunkers import ChunkingEngine
+from app.ingestion.deduplicator import ChunkDeduplicator
+from app.indexing.sparse import SparseBM25Index
+from app.indexing.dense import DenseVectorIndex
+from app.indexing.hybrid_retriever import HybridRetriever
+from app.reranking.cross_encoder import DocumentReranker
+from app.generation.generator import GroundedGenerator
+from app.generation.verifier import CitationVerifier
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

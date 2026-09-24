@@ -61,6 +61,6 @@ target-version = "py311"
 select = ["F"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["backend/tests"]
 python_files = ["test_*.py"]
-pythonpath = ["."]
+pythonpath = [".", "backend"]

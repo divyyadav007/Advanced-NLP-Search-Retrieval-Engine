@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 from typing import List, Callable
-from src.ingestion.schemas import Chunk
+from app.ingestion.schemas import Chunk
 
 logger = logging.getLogger(__name__)
 

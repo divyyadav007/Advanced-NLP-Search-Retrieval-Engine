@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 from unittest.mock import patch
-from src.main import app
+from app.main import app
 
 client = TestClient(app)
 
@@ -29,7 +29,7 @@ def test_ingest_endpoint_validation():
     assert "cannot be empty" in response.json()["detail"]
 
 
-@patch("src.main.app.state.parser_router")
+@patch("app.main.app.state.parser_router")
 def test_ingest_endpoint_file_not_found(mock_parser):
     """Verify endpoint error routing when file does not exist on disk."""
     # Configure mock to raise FileNotFoundError
@@ -52,7 +52,7 @@ def test_ask_endpoint_validation():
     assert "cannot be empty" in response.json()["detail"]
 
 
-@patch("src.main.app.state.hybrid_retriever")
+@patch("app.main.app.state.hybrid_retriever")
 def test_ask_endpoint_empty_database(mock_retriever):
     """Verify answer fallback behavior when hybrid search database has zero indexed chunks."""
     mock_retriever.retrieve.return_value = []

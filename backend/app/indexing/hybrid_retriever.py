@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
-from src.indexing.sparse import SparseBM25Index
-from src.indexing.dense import DenseVectorIndex
-from src.ingestion.schemas import Chunk, ChunkMetadata
+from app.indexing.sparse import SparseBM25Index
+from app.indexing.dense import DenseVectorIndex
+from app.ingestion.schemas import Chunk, ChunkMetadata
 
 
 class HybridRetriever:
