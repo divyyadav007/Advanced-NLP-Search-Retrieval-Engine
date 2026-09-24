@@ -32,15 +32,18 @@ except ImportError:
     try:
         from backend.app.config import config
     except ImportError:
+
         class AppConfigFallback:
             CHUNK_SIZE = 1500
             CHUNK_OVERLAP = 300
             RETRIEVAL_TOP_K = 10
             RERANK_TOP_N = 5
             DATA_DIR = Path(__file__).resolve().parents[2] / "backend" / "data"
+
             @classmethod
             def validate_environment(cls):
                 pass
+
         config = AppConfigFallback()
 
 # Standalone mode model imports (optional when communicating with backend API)

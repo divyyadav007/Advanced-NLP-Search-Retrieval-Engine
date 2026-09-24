@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 import streamlit.web.cli as stcli

@@ -106,6 +106,7 @@ class SparseBM25Index:
         """Deserialize stored BM25 model and chunks from disk if present."""
         if os.path.exists(self.storage_path):
             try:
+
                 class CompatUnpickler(pickle.Unpickler):
                     def find_class(self, module, name):
                         if module.startswith("src."):
